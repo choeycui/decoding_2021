@@ -120,3 +120,69 @@ def similarity(desc, brand, itemDict):
 
         itemSet = JaroRatioWinner + JaroWinner + JaroWinklerWinner + RatioWinner
         return Counter(itemSet).most_common(1)[0][0]
+
+def wordExpWeight(corpus):
+    from sklearn.feature_extraction.text import TfidfTransformer
+    from sklearn.feature_extraction.text import CountVectorizer
+    import numpy as np
+    help(np.amax)
+    vectorizer=CountVectorizer()
+    transformer=TfidfTransformer()
+    tfidf=transformer.fit_transform(vectorizer.fit_transform(corpus))
+    word=vectorizer.get_feature_names()
+    weight=tfidf.toarray()
+    return dict(zip(word, map(np.exp, np.amax(weight, axis=0))))
+  
+def jaroWinkler(str1: list, str2: list, weight: dict, p=0.1) -> float:
+    """
+    Jaro–Winkler distance is a string metric measuring an edit distance between two
+    sequences.
+    """
+
+    def get_matched_characters(_str1: list, _str2: list) -> list:
+        matched = []
+        limit = 999
+        for i, l in enumerate(_str1):
+            left = int(max(0, i - limit))
+            right = int(min(i + limit + 1, len(_str2)))
+            if l in _str2[left:right]:
+                matched.append(l)
+                _str2 = f"{_str2[0:_str2.index(l)]} {_str2[_str2.index(l) + 1:]}"
+
+        return matched
+
+    def getLen(weightMatrix: dict, strList: list) -> float:
+        return sum(map(lambda x: weightMatrix.get(x, 1), strList))
+
+    # matching characters
+    matching_1 = get_matched_characters(str1, str2)
+    matching_2 = get_matched_characters(str2, str1)
+    match_count = getLen(weight, matching_1)
+
+    # transposition
+    transpositions = (
+        len([(weight.get(c1, 1), weight.get(c2, 1)) for c1, c2 in zip(matching_1, matching_2) if c1 != c2]) // 2
+    )
+
+    if not match_count:
+        jaro = 0.0
+    else:
+        jaro = (
+            1/3
+            * (
+                match_count / getLen(weight, str1)
+                + match_count / getLen(weight, str2)
+                + (match_count - transpositions) / match_count
+            )
+        )
+
+    # common prefix up to 4 characters
+    prefix_len = 0
+    for c1, c2 in zip(str1[:4], str2[:4]):
+        if c1 == c2:
+            prefix_len += 1
+        else:
+            break
+
+    return jaro + p * prefix_len * (1 - jaro)
+      
