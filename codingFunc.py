@@ -186,3 +186,12 @@ def jaroWinkler(str1: list, str2: list, weight: dict, p=0.1) -> float:
 
     return jaro + p * prefix_len * (1 - jaro)
       
+def similarity1(desc, brand, itemDict, weight):
+    subDict = itemDict.loc[itemDict['BRAND_DESC_CN']==brand, ['NANKEY', 'ITEM_SEQ_LIST']].copy()
+    size = len(subDict['NANKEY'].unique())
+    if size < 1:
+        return np.nan
+    else:
+        subDict['JaroWinkler'] = subDict['ITEM_SEQ_LIST'].apply(lambda x: jaroWinkler(x, desc, weight))
+        JaroWinklerWinner = subDict.groupby('NANKEY')['JaroWinkler'].max().sort_values(ascending=False).index[:1][0]
+        return JaroWinklerWinner
