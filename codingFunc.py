@@ -140,15 +140,14 @@ def jaroWinkler(str1: list, str2: list, weight: dict, p=0.1) -> float:
     """
 
     def get_matched_characters(_str1: list, _str2: list) -> list:
+        import copy
         matched = []
-        limit = 999
-        for i, l in enumerate(_str1):
-            left = int(max(0, i - limit))
-            right = int(min(i + limit + 1, len(_str2)))
-            if l in _str2[left:right]:
-                matched.append(l)
-                _str2 = f"{_str2[0:_str2.index(l)]} {_str2[_str2.index(l) + 1:]}"
-
+        str1_ = copy.deepcopy(_str1)
+        str2_ = copy.deepcopy(_str2)
+        for i in str1_:
+            if i in str2_:
+                matched.append(i)
+                str2_.remove(i)
         return matched
 
     def getLen(weightMatrix: dict, strList: list) -> float:
@@ -164,7 +163,7 @@ def jaroWinkler(str1: list, str2: list, weight: dict, p=0.1) -> float:
         len([(weight.get(c1, 1), weight.get(c2, 1)) for c1, c2 in zip(matching_1, matching_2) if c1 != c2]) // 2
     )
 
-    if not match_count:
+    if match_count<=0:
         jaro = 0.0
     else:
         jaro = (
@@ -175,9 +174,9 @@ def jaroWinkler(str1: list, str2: list, weight: dict, p=0.1) -> float:
                 + (match_count - transpositions) / match_count
             )
         )
-
     # common prefix up to 4 characters
     prefix_len = 0
+
     for c1, c2 in zip(str1[:4], str2[:4]):
         if c1 == c2:
             prefix_len += 1
