@@ -16,7 +16,9 @@ pattern_imdb = re.compile('^@+\d+/?\d+/?\d+,?|^\[[A-Z]*\]')
 # pattern that indentify the split signal
 pattern_cut = re.compile(r'[^\u4e00-\u9fa5^a-z^A-Z^0-9^\d^\.^\+]')
 pattern_retailer = re.compile('^[A-Z](?=[^a-zA-Z0-9])|^([\\w^旺^Q^花])\\1+|^\*|^#|^\[[A-Z]*\]|^\([^\)]+\)\*?')
-pattern_web = re.compile('^[\[\(](?=[^【^】]).*[\]\)]')
+pattern_web = re.compile('^\[[^\[^\]]+\]|^\([^\(^\)]+\)')
+pattern_pack_head = re.compile('\d+$')
+pattern_pack_tail = re.compile('^\d+(?=.*[^A-Z^a-z]$)|^\d+$')
 
 import jieba
 def jiebaPrework(imdb):
@@ -84,14 +86,40 @@ def retailerDesc(itemDesc):
 
 def webDesc(itemDesc):
     itemDesc = strQ2B(itemDesc)
+    def getPackSize(itemDesc):
+        descList = itemDesc.split('*')
+        if len(descList) == 1:
+            return itemDesc, 1
+        if len(descList) > 1:
+            result0 = pattern_pack_head.search(descList[0])
+            if result0:
+                itemDesc = re.sub(pattern_pack_head, '', descList[0])
+                packSize = int(result0.group())
+            else:
+                itemDesc = descList[0]
+                packSize = 1
+            for desc in descList[1:]:
+                result = pattern_pack_tail.search(desc)
+                if result:
+                    itemDesc += re.sub(pattern_pack_tail, '', desc)
+                    packSize  = packSize * int(result.group())
+                else:
+                    itemDesc += desc
+                    continue
+            return itemDesc, packSize
     if re.search('^【(?=[^【^】]).*】$', itemDesc):
         itemDesc = itemDesc.replace('【', '').replace('】', '')
+    itemDesc = re.sub('(?<=\d)克','G', itemDesc)
+    itemDesc = re.sub('(?<=\d)[毫豪亳]升','ML', itemDesc)
+    itemDesc = re.sub('(?<=\d)升','L', itemDesc)
+    itemDesc, packSize = getPackSize(itemDesc)
+    # itemDesc = re.sub('/?[{}]'.format('|'.join(unitDesc)),' ', itemDesc)
     itemDesc = itemDesc.replace('【', '[').replace('】', ']')
     itemDesc = itemDesc.replace("（", "(").replace("）",')')
-    re.sub(pattern_web, '', itemDesc)
+    itemDesc = re.sub(pattern_web, '', itemDesc)
     itemDesc = retailerDesc(itemDesc)
     itemDesc = imdbDesc(itemDesc)
-    return itemDesc
+    return itemDesc, packSize
 
 import Levenshtein
 from difflib import SequenceMatcher
