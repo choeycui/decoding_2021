@@ -194,3 +194,45 @@ def similarity1(desc, brand, itemDict, weight):
         subDict['JaroWinkler'] = subDict['ITEM_SEQ_LIST'].apply(lambda x: jaroWinkler(x, desc, weight))
         JaroWinklerWinner = subDict.groupby('NANKEY')['JaroWinkler'].max().sort_values(ascending=False).index[:1][0]
         return JaroWinklerWinner
+
+# word weight by brand
+def wordExpWeight_Matrix(data):
+    global unitDesc
+    from sklearn.feature_extraction.text import TfidfTransformer
+    from sklearn.feature_extraction.text import CountVectorizer
+    import numpy as np
+    wDict = {}
+    brandList = list(data['BRAND_DESC_CN'].unique())
+    for brand in brandList:
+        corpus = data.loc[data['BRAND_DESC_CN']==brand]['TEXT']
+        vectorizer=CountVectorizer()
+        transformer=TfidfTransformer()
+        tfidf=transformer.fit_transform(vectorizer.fit_transform(corpus))
+        word=vectorizer.get_feature_names()
+        weight=tfidf.toarray()
+        wDict[brand] = dict(zip(word, map(np.exp, np.amax(weight, axis=0))))
+        wDict[brand]['味'] = 0
+        wDict[brand]['风味'] = 0
+        wDict[brand]['口味'] = 0
+        for unit in unitDesc:
+            wDict[brand][unit] = 0
+    return wDict
+
+# weight.get update
+def similarity1(desc, brand, itemDict, weight):
+    subDict = itemDict.loc[itemDict['BRAND_DESC_CN']==brand, ['NANKEY', 'ITEM_SEQ_LIST', 'LONGDESC']].copy()
+    size = len(subDict['NANKEY'].unique())
+    if size < 1:
+        return '', '', np.nan
+    else:
+        subDict['JaroWinkler'] = subDict['ITEM_SEQ_LIST'].apply(lambda x: jaroWinkler(x, desc, weight.get(brand, {})))
+        JaroWinkler = subDict.groupby('NANKEY')['JaroWinkler'].max().sort_values(ascending=False)
+        JaroWinklerWinner = JaroWinkler.index[:1][0]
+        JaroWinklerScore = JaroWinkler.values[0]
+        JaroWinklerWinnerDesc = ';'.join(\
+            subDict.loc[(subDict['NANKEY']==JaroWinklerWinner) & (subDict['JaroWinkler']==JaroWinklerScore), 'LONGDESC'].values\
+                )
+        return JaroWinklerWinner, JaroWinklerWinnerDesc, JaroWinklerScore
+# eg.
+tfidf_train = itemRef.groupby(['NANKEY', 'BRAND_DESC_CN'])['ITEM_SEQ'].apply(lambda x: ' '.join(x)).reset_index(name='TEXT')
+wDict = wordExpWeight_Matrix(tfidf_train)
